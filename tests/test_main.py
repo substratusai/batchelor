@@ -6,7 +6,7 @@ import aiohttp
 import pytest
 from pytest_httpserver import HTTPServer
 
-from batchelor.main import flusher, worker
+from batchelor.main import flusher, worker, main
 
 
 @pytest.mark.asyncio
@@ -57,3 +57,20 @@ async def test_worker(httpserver: HTTPServer):
     result = await results.get()
     assert result == {"request": dummy_request, "response": dummy_data}
     await session.close()
+
+
+@pytest.mark.asyncio
+async def test_main(httpserver: HTTPServer, tmp_path: pathlib.Path):
+    httpserver.expect_request("/v1/completions").respond_with_json({"foo": "bar"})
+    url = httpserver.url_for("/v1/completions")
+    requests_path = "tests/example_data.jsonl"
+    output_path = str(tmp_path)
+    flush_every = 90
+    concurrency = 10
+    await asyncio.wait_for(
+        asyncio.create_task(
+            main(requests_path, output_path, concurrency, flush_every, url)
+        ),
+        timeout=10,
+    )
+    assert len(os.listdir(tmp_path)) == 3

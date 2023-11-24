@@ -78,7 +78,7 @@ async def flusher(results: asyncio.Queue, flush_every: int, output_path: str):
                 break
 
 
-async def main():
+async def main(requests_path, output_path, concurrency, flush_every, url):
     requests = asyncio.Queue(maxsize=concurrency)
     results = asyncio.Queue(maxsize=flush_every)
     timeout = aiohttp.ClientTimeout(total=600)
@@ -137,5 +137,6 @@ if __name__ == "__main__":
     requests_path = args.requests_path
     output_path = args.output_path
     flush_every = args.flush_every
+    concurrency = args.concurrency
     url = args.url
-    asyncio.run(main())
+    asyncio.run(main(requests_path, output_path, concurrency, flush_every, url))
