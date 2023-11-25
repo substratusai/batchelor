@@ -57,8 +57,7 @@ async def test_worker(httpserver: HTTPServer):
     await requests.put(dummy_request)
     await requests.put(None)
     task = asyncio.create_task(worker(requests, results, session, worker_id, url, []))
-    async with asyncio.timeout(10):
-        await requests.join()
+    await asyncio.wait_for(requests.join(), timeout=10)
     assert results.qsize() == 1
     result = await results.get()
     assert result == {"request": dummy_request, "response": dummy_data}
@@ -84,8 +83,7 @@ async def test_worker_ignore_fields(httpserver: HTTPServer):
     task = asyncio.create_task(
         worker(requests, results, session, worker_id, url, ignore_fields)
     )
-    async with asyncio.timeout(10):
-        await requests.join()
+    await asyncio.wait_for(requests.join(), timeout=10)
     assert results.qsize() == 1
     result = await results.get()
     assert result == {"request": dummy_request, "response": dummy_data}
