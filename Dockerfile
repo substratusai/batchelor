@@ -8,14 +8,12 @@ ENV URL=http://localhost:8080/v1/completions
 # Set the working directory in the container
 WORKDIR /usr/src/app
 
-COPY main.py /usr/src/app
 COPY requirements.txt /usr/src/app
 
 # Install any needed packages specified in requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
+COPY main.py /usr/src/app
+
 # Run the Python script when the container launches
-CMD python main.py --requests-path $REQUESTS_PATH \
-      --output-path $OUTPUT_PATH \
-      --flush-every $FLUSH_EVERY \
-      --url $URL
+CMD python main.py
