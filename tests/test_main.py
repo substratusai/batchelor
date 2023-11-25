@@ -6,7 +6,13 @@ import aiohttp
 import pytest
 from pytest_httpserver import HTTPServer
 
-from batchelor.main import flusher, worker, main
+from batchelor.main import (
+    flusher,
+    worker,
+    main,
+    remove_ignored_fields,
+    parse_ignore_fields,
+)
 
 
 @pytest.mark.asyncio
@@ -50,13 +56,75 @@ async def test_worker(httpserver: HTTPServer):
     session = aiohttp.ClientSession()
     await requests.put(dummy_request)
     await requests.put(None)
-    task = asyncio.create_task(worker(requests, results, session, worker_id, url))
+    task = asyncio.create_task(worker(requests, results, session, worker_id, url, []))
     async with asyncio.timeout(10):
         await requests.join()
     assert results.qsize() == 1
     result = await results.get()
     assert result == {"request": dummy_request, "response": dummy_data}
     await session.close()
+
+
+@pytest.mark.asyncio
+async def test_worker_ignore_fields(httpserver: HTTPServer):
+    dummy_data = {"foo": "bar"}
+    dummy_request = {"title": "result_1", "id": 1}
+    ignore_fields = ["id"]
+    expected_request = {"title": "result_1"}
+    httpserver.expect_request(
+        "/v1/completions", method="POST", json=expected_request
+    ).respond_with_json(dummy_data)
+    url = httpserver.url_for("/v1/completions")
+    requests = asyncio.Queue(maxsize=100)
+    results = asyncio.Queue(maxsize=100)
+    worker_id = 1
+    session = aiohttp.ClientSession()
+    await requests.put(dummy_request)
+    await requests.put(None)
+    task = asyncio.create_task(
+        worker(requests, results, session, worker_id, url, ignore_fields)
+    )
+    async with asyncio.timeout(10):
+        await requests.join()
+    assert results.qsize() == 1
+    result = await results.get()
+    assert result == {"request": dummy_request, "response": dummy_data}
+    await session.close()
+
+
+def test_remove_ignored_fields():
+    request = {"title": "result_1", "id": 1}
+    ignore_fields = ["id"]
+    expected_request = {"title": "result_1"}
+    assert remove_ignored_fields(request, ignore_fields) == expected_request
+
+
+def test_remove_ignored_fields_empty_ignore_fields():
+    request = {"title": "result_1", "id": 1}
+    ignore_fields = []
+    expected_request = {"title": "result_1", "id": 1}
+    assert remove_ignored_fields(request, ignore_fields) == expected_request
+
+
+def test_parse_ignore_fields():
+    ignore_fields = "id,title"
+    assert parse_ignore_fields(ignore_fields) == ["id", "title"]
+
+
+def test_parse_ignore_fields_empty():
+    ignore_fields = ""
+    assert parse_ignore_fields(ignore_fields) == []
+
+
+def test_parse_ignore_fields_single():
+    assert parse_ignore_fields("id") == ["id"]
+    assert parse_ignore_fields("id,  ") == ["id"]
+    assert parse_ignore_fields(" id,  ") == ["id"]
+
+
+def test_parse_ignore_fields_spaces():
+    ignore_fields = " id , title  ,  "
+    assert parse_ignore_fields(ignore_fields) == ["id", "title"]
 
 
 @pytest.mark.asyncio
@@ -67,9 +135,12 @@ async def test_main(httpserver: HTTPServer, tmp_path: pathlib.Path):
     output_path = str(tmp_path)
     flush_every = 90
     concurrency = 10
+    ignore_fields = []
     await asyncio.wait_for(
         asyncio.create_task(
-            main(requests_path, output_path, concurrency, flush_every, url)
+            main(
+                requests_path, output_path, concurrency, flush_every, url, ignore_fields
+            )
         ),
         timeout=10,
     )

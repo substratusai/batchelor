@@ -12,6 +12,7 @@ from smart_open import open
 
 url = "http://localhost:8080/v1/completions"
 filename = "part-{partition}.jsonl"
+ignore_fields = []
 concurrency = 100
 requests_path = ""
 output_path = "/tmp/lingo-batch-inference"
@@ -33,6 +34,7 @@ async def worker(
     session: aiohttp.ClientSession,
     worker_id: int,
     url: str,
+    ignore_fields: list[str] = [],
 ):
     print(f"Starting worker {worker_id}")
     while True:
@@ -41,7 +43,8 @@ async def worker(
         if request is None:
             requests.task_done()
             break
-        async with session.post(url=url, json=request) as response:
+        parsed_request = remove_ignored_fields(request, ignore_fields)
+        async with session.post(url=url, json=parsed_request) as response:
             print(f"{worker_id}: HTTP {response.status}")
             response = await response.json()
             await results.put({"request": request, "response": response})
@@ -78,7 +81,9 @@ async def flusher(results: asyncio.Queue, flush_every: int, output_path: str):
                 break
 
 
-async def main(requests_path, output_path, concurrency, flush_every, url):
+async def main(
+    requests_path, output_path, concurrency, flush_every, url, ignore_fields
+):
     requests = asyncio.Queue(maxsize=concurrency)
     results = asyncio.Queue(maxsize=flush_every)
     timeout = aiohttp.ClientTimeout(total=600)
@@ -89,7 +94,9 @@ async def main(requests_path, output_path, concurrency, flush_every, url):
         )
         flusher_task = asyncio.create_task(flusher(results, flush_every, output_path))
         workers = [
-            asyncio.create_task(worker(requests, results, session, worker_id, url))
+            asyncio.create_task(
+                worker(requests, results, session, worker_id, url, ignore_fields)
+            )
             for worker_id in range(concurrency)
         ]
         await producer_task
@@ -104,6 +111,33 @@ async def main(requests_path, output_path, concurrency, flush_every, url):
         for w in workers:
             w.cancel()
         # await asyncio.gather(*workers, return_exceptions=True)
+
+
+def parse_ignore_fields(ignore_fields: str) -> list[str]:
+    """
+    Ignore fields in the request. Example: --ignore-fields 'id,bar'
+
+    @param ignore_fields: Comma-separated list of fields to ignore
+
+    Returns a list of the ignored fields.
+    """
+    if ignore_fields == "":
+        return []
+    fields = [field.strip() for field in ignore_fields.split(",")]
+    fields = list(filter(lambda field: field != "", fields))
+    return fields
+
+
+def remove_ignored_fields(request: dict, ignore_fields: list[str]) -> dict:
+    """
+    Remove ignored fields from the request.
+
+    @param request: Request dict
+    @param ignore_fields: List of fields to ignore
+
+    Returns a new request dict without the ignored fields.
+    """
+    return {key: value for key, value in request.items() if key not in ignore_fields}
 
 
 if __name__ == "__main__":
@@ -133,10 +167,19 @@ if __name__ == "__main__":
         default=os.environ.get("CONCURRENCY", concurrency),
         help=f"Number of concurrent requests. Defaults to {concurrency}",
     )
+    parser.add_argument(
+        "--ignore-fields",
+        type=str,
+        default=os.environ.get("IGNORE_FIELDS", ""),
+        help="Fields to ignore in the request. Example: --ignore-fields 'id,bar'",
+    )
     args = parser.parse_args()
     requests_path = args.requests_path
     output_path = args.output_path
     flush_every = args.flush_every
     concurrency = args.concurrency
+    ignore_fields = parse_ignore_fields(args.ignore_fields)
     url = args.url
-    asyncio.run(main(requests_path, output_path, concurrency, flush_every, url))
+    asyncio.run(
+        main(requests_path, output_path, concurrency, flush_every, url, ignore_fields)
+    )
