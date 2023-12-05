@@ -21,7 +21,7 @@ python main.py --requests-path gs://my-bucket/requests.jsonl \
 ## Flags
 ```sh
 usage: main.py [-h] [--url URL] [--requests-path REQUESTS_PATH] [--output-path OUTPUT_PATH]
-               [--flush-every FLUSH_EVERY] [--concurrency CONCURRENCY]
+               [--flush-every FLUSH_EVERY] [--concurrency CONCURRENCY] [--ignore-fields IGNORE_FIELDS]
 
 Test Lingo using Python OpenAI API
 
@@ -36,4 +36,6 @@ options:
                         Number of requests to flush to disk
   --concurrency CONCURRENCY
                         Number of concurrent requests. Defaults to 100
+  --ignore-fields IGNORE_FIELDS
+                        Fields to ignore in the request. Example: --ignore-fields 'id,bar'
 ```
