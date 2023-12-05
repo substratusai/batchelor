@@ -1,2 +1,2 @@
-smart_open
+smart_open[all]
 aiohttp
