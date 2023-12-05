@@ -78,6 +78,7 @@ async def flusher(results: asyncio.Queue, flush_every: int, output_path: str):
             current_batch = []
             partition += 1
             if result is None:
+                results.task_done()
                 break
 
 
