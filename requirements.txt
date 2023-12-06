@@ -1,2 +1,3 @@
 smart_open[all]
 aiohttp
+aiohttp_retry
