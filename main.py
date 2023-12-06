@@ -6,8 +6,10 @@ import argparse
 import asyncio
 import json
 import os
+import traceback
 
 import aiohttp
+from aiohttp_retry import RetryClient, ExponentialRetry
 from smart_open import open
 
 url = "http://localhost:8080/v1/completions"
@@ -31,7 +33,7 @@ async def read_file_and_enqueue(path, queue: asyncio.Queue):
 async def worker(
     requests: asyncio.Queue,
     results: asyncio.Queue,
-    session: aiohttp.ClientSession,
+    session: RetryClient,
     worker_id: int,
     url: str,
     ignore_fields: list[str] = [],
@@ -43,12 +45,17 @@ async def worker(
         if request is None:
             requests.task_done()
             break
-        parsed_request = remove_ignored_fields(request, ignore_fields)
-        async with session.post(url=url, json=parsed_request) as response:
-            print(f"{worker_id}: HTTP {response.status}")
-            response = await response.json()
-            await results.put({"request": request, "response": response})
+        try:
+            parsed_request = remove_ignored_fields(request, ignore_fields)
+            async with session.post(url=url, json=parsed_request) as response:
+                print(f"{worker_id}: HTTP {response.status}")
+                response = await response.json()
+                await results.put({"request": request, "response": response})
+                requests.task_done()
+        except Exception as e:
+            await results.put({"request": request, "error": str(e)})
             requests.task_done()
+            traceback.print_exc()
 
 
 async def flusher(results: asyncio.Queue, flush_every: int, output_path: str):
@@ -58,7 +65,6 @@ async def flusher(results: asyncio.Queue, flush_every: int, output_path: str):
     while True:
         result = await results.get()
         if result is None and len(current_batch) == 0:
-            results.task_done()
             break
         current_batch.append(result)
         if len(current_batch) >= flush_every or result is None:
@@ -73,8 +79,6 @@ async def flusher(results: asyncio.Queue, flush_every: int, output_path: str):
             )
             with open(partitioned_filename, mode="w") as file:
                 file.write(jsonl_data)
-            for _ in range(0, len(current_batch)):
-                results.task_done()
             current_batch = []
             partition += 1
             if result is None:
@@ -86,32 +90,34 @@ async def main(
     requests_path, output_path, concurrency, flush_every, url, ignore_fields
 ):
     requests = asyncio.Queue(maxsize=concurrency)
-    results = asyncio.Queue(maxsize=flush_every)
+    results = asyncio.Queue()
     timeout = aiohttp.ClientTimeout(total=600)
     conn = aiohttp.TCPConnector(limit=0)
-    async with aiohttp.ClientSession(timeout=timeout, connector=conn) as session:
-        producer_task = asyncio.create_task(
-            read_file_and_enqueue(requests_path, requests)
+    session = aiohttp.ClientSession(timeout=timeout, connector=conn)
+    retry_options = ExponentialRetry(attempts=3)
+    retry_client = RetryClient(client_session=session, retry_options=retry_options)
+    producer_task = asyncio.create_task(
+        read_file_and_enqueue(requests_path, requests)
+    )
+    flusher_task = asyncio.create_task(flusher(results, flush_every, output_path))
+    workers = [
+        asyncio.create_task(
+            worker(requests, results, session, worker_id, url, ignore_fields)
         )
-        flusher_task = asyncio.create_task(flusher(results, flush_every, output_path))
-        workers = [
-            asyncio.create_task(
-                worker(requests, results, session, worker_id, url, ignore_fields)
-            )
-            for worker_id in range(concurrency)
-        ]
-        await producer_task
-        print("Finished reading requests file and enqueueing requests")
-        print("Waiting for all requests to be processed")
-        await requests.join()
-        print("All requests have been processed")
-        # Send a signal that all requests have been processed
-        await results.put(None)
-        print("Waiting for all results to be flushed")
-        await flusher_task
-        for w in workers:
-            w.cancel()
-        # await asyncio.gather(*workers, return_exceptions=True)
+        for worker_id in range(concurrency)
+    ]
+    await producer_task
+    print("Finished reading requests file and enqueueing requests")
+    print("Waiting for all requests to be processed")
+    await requests.join()
+    print("All requests have been processed")
+    await session.close()
+    # Send a signal that all requests have been processed
+    await results.put(None)
+    print("Waiting for all results to be flushed")
+    await flusher_task
+    for w in workers:
+        w.cancel()
 
 
 def parse_ignore_fields(ignore_fields: str) -> list[str]:
