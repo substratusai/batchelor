@@ -138,7 +138,13 @@ async def test_main(httpserver: HTTPServer, tmp_path: pathlib.Path):
     await asyncio.wait_for(
         asyncio.create_task(
             main(
-                requests_path, output_path, concurrency, flush_every, url, ignore_fields
+                requests_path,
+                output_path,
+                concurrency,
+                flush_every,
+                url,
+                ignore_fields,
+                10,
             )
         ),
         timeout=10,
@@ -161,7 +167,13 @@ async def test_main_error(httpserver: HTTPServer, tmp_path: pathlib.Path):
     await asyncio.wait_for(
         asyncio.create_task(
             main(
-                requests_path, output_path, concurrency, flush_every, url, ignore_fields
+                requests_path,
+                output_path,
+                concurrency,
+                flush_every,
+                url,
+                ignore_fields,
+                10,
             )
         ),
         timeout=30,

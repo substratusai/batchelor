@@ -51,9 +51,7 @@ async def worker(
             async with session.post(url=url, json=parsed_request) as response:
                 print(f"{worker_id}: HTTP {response.status}")
                 if response.status != 200:
-                    raise Exception(
-                        f"HTTP {response.status}: {await response.text()}"
-                    )
+                    raise Exception(f"HTTP {response.status}: {await response.text()}")
                 response = await response.json()
                 await results.put({"request": request, "response": response})
                 requests.task_done()
@@ -92,7 +90,7 @@ async def flusher(results: asyncio.Queue, flush_every: int, output_path: str):
 
 
 async def main(
-    requests_path, output_path, concurrency, flush_every, url, ignore_fields
+    requests_path, output_path, concurrency, flush_every, url, ignore_fields, timeout
 ):
     requests = asyncio.Queue(maxsize=concurrency)
     results = asyncio.Queue()
@@ -101,9 +99,7 @@ async def main(
     session = aiohttp.ClientSession(timeout=timeout, connector=conn)
     retry_options = ExponentialRetry(attempts=3, statuses={500, 502, 503, 504})
     retry_client = RetryClient(client_session=session, retry_options=retry_options)
-    producer_task = asyncio.create_task(
-        read_file_and_enqueue(requests_path, requests)
-    )
+    producer_task = asyncio.create_task(read_file_and_enqueue(requests_path, requests))
     flusher_task = asyncio.create_task(flusher(results, flush_every, output_path))
     workers = [
         asyncio.create_task(
@@ -200,5 +196,13 @@ if __name__ == "__main__":
     url = args.url
     timeout = args.timeout
     asyncio.run(
-        main(requests_path, output_path, concurrency, flush_every, url, ignore_fields)
+        main(
+            requests_path,
+            output_path,
+            concurrency,
+            flush_every,
+            url,
+            ignore_fields,
+            timeout,
+        )
     )
