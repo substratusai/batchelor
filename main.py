@@ -33,7 +33,7 @@ async def read_file_and_enqueue(path, queue: asyncio.Queue):
 async def worker(
     requests: asyncio.Queue,
     results: asyncio.Queue,
-    session: RetryClient,
+    session: aiohttp.ClientSession,
     worker_id: int,
     url: str,
     ignore_fields: list[str] = [],
@@ -94,7 +94,7 @@ async def main(
     timeout = aiohttp.ClientTimeout(total=600)
     conn = aiohttp.TCPConnector(limit=0)
     session = aiohttp.ClientSession(timeout=timeout, connector=conn)
-    retry_options = ExponentialRetry(attempts=3)
+    retry_options = ExponentialRetry(attempts=3, statuses={500, 502, 503, 504})
     retry_client = RetryClient(client_session=session, retry_options=retry_options)
     producer_task = asyncio.create_task(
         read_file_and_enqueue(requests_path, requests)
@@ -102,7 +102,7 @@ async def main(
     flusher_task = asyncio.create_task(flusher(results, flush_every, output_path))
     workers = [
         asyncio.create_task(
-            worker(requests, results, session, worker_id, url, ignore_fields)
+            worker(requests, results, retry_client, worker_id, url, ignore_fields)
         )
         for worker_id in range(concurrency)
     ]

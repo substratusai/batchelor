@@ -5,6 +5,7 @@ import os
 import aiohttp
 import pytest
 from pytest_httpserver import HTTPServer
+from werkzeug.wrappers import Response
 
 from batchelor.main import (
     flusher,
@@ -143,3 +144,41 @@ async def test_main(httpserver: HTTPServer, tmp_path: pathlib.Path):
         timeout=10,
     )
     assert len(os.listdir(tmp_path)) == 3
+
+
+@pytest.mark.asyncio
+async def test_main_error(httpserver: HTTPServer, tmp_path: pathlib.Path):
+    httpserver.expect_request("/v1/completions").respond_with_response(
+        Response(status=500)
+    )
+    url = httpserver.url_for("/v1/completions")
+    requests_path = "tests/example_data.jsonl"
+    output_path = str(tmp_path)
+    flush_every = 90
+    concurrency = 10
+    ignore_fields = []
+    # This takes roughly 10 seconds due to exponential backoff before retrying
+    await asyncio.wait_for(
+        asyncio.create_task(
+            main(
+                requests_path, output_path, concurrency, flush_every, url, ignore_fields
+            )
+        ),
+        timeout=30,
+    )
+    assert len(os.listdir(tmp_path)) == 3
+
+    total_lines = 0
+    for file in os.listdir(tmp_path):
+        with open(tmp_path / file, mode="r") as f:
+            content = f.read()
+            assert "error" in content, f"Expected error in {content}"
+            f.seek(0)
+            total_lines += len(f.readlines())
+
+    requests_count = 0
+    with open(requests_path, mode="r") as f:
+        requests_count += len(f.readlines())
+    assert (
+        total_lines == requests_count
+    ), f"Expected {requests_count} lines, got {total_lines}."
