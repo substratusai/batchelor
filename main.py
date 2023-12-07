@@ -97,7 +97,7 @@ async def main(
     timeout = aiohttp.ClientTimeout(total=timeout)
     conn = aiohttp.TCPConnector(limit=0)
     session = aiohttp.ClientSession(timeout=timeout, connector=conn)
-    retry_options = ExponentialRetry(attempts=3, statuses={500, 502, 503, 504})
+    retry_options = ExponentialRetry(attempts=6, statuses={500, 502, 503, 504})
     retry_client = RetryClient(client_session=session, retry_options=retry_options)
     producer_task = asyncio.create_task(read_file_and_enqueue(requests_path, requests))
     flusher_task = asyncio.create_task(flusher(results, flush_every, output_path))
