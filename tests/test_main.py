@@ -154,8 +154,8 @@ async def test_main_error(httpserver: HTTPServer, tmp_path: pathlib.Path):
     url = httpserver.url_for("/v1/completions")
     requests_path = "tests/example_data.jsonl"
     output_path = str(tmp_path)
-    flush_every = 90
-    concurrency = 10
+    flush_every = 100
+    concurrency = 50
     ignore_fields = []
     # This takes roughly 10 seconds due to exponential backoff before retrying
     await asyncio.wait_for(
@@ -166,7 +166,7 @@ async def test_main_error(httpserver: HTTPServer, tmp_path: pathlib.Path):
         ),
         timeout=30,
     )
-    assert len(os.listdir(tmp_path)) == 3
+    assert len(os.listdir(tmp_path)) == 2
 
     total_lines = 0
     for file in os.listdir(tmp_path):

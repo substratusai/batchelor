@@ -49,6 +49,10 @@ async def worker(
             parsed_request = remove_ignored_fields(request, ignore_fields)
             async with session.post(url=url, json=parsed_request) as response:
                 print(f"{worker_id}: HTTP {response.status}")
+                if response.status != 200:
+                    raise Exception(
+                        f"HTTP {response.status}: {await response.text()}"
+                    )
                 response = await response.json()
                 await results.put({"request": request, "response": response})
                 requests.task_done()
