@@ -19,6 +19,7 @@ concurrency = 100
 requests_path = ""
 output_path = "/tmp/lingo-batch-inference"
 flush_every = 1000
+timeout = 1200
 
 
 async def read_file_and_enqueue(path, queue: asyncio.Queue):
@@ -95,7 +96,7 @@ async def main(
 ):
     requests = asyncio.Queue(maxsize=concurrency)
     results = asyncio.Queue()
-    timeout = aiohttp.ClientTimeout(total=600)
+    timeout = aiohttp.ClientTimeout(total=timeout)
     conn = aiohttp.TCPConnector(limit=0)
     session = aiohttp.ClientSession(timeout=timeout, connector=conn)
     retry_options = ExponentialRetry(attempts=3, statuses={500, 502, 503, 504})
@@ -184,6 +185,12 @@ if __name__ == "__main__":
         default=os.environ.get("IGNORE_FIELDS", ""),
         help="Fields to ignore in the request. Example: --ignore-fields 'id,bar'",
     )
+    parser.add_argument(
+        "--timeout",
+        type=int,
+        default=os.environ.get("TIMEOUT", timeout),
+        help=f"Request timeout in seconds. Defaults to {timeout}",
+    )
     args = parser.parse_args()
     requests_path = args.requests_path
     output_path = args.output_path
@@ -191,6 +198,7 @@ if __name__ == "__main__":
     concurrency = args.concurrency
     ignore_fields = parse_ignore_fields(args.ignore_fields)
     url = args.url
+    timeout = args.timeout
     asyncio.run(
         main(requests_path, output_path, concurrency, flush_every, url, ignore_fields)
     )
