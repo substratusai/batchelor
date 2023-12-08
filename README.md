@@ -18,6 +18,41 @@ python main.py --requests-path gs://my-bucket/requests.jsonl \
    --url http://localhost:8080/v1/completions
 ```
 
+### Running a K8s Job
+You can run the batch inference script as a K8s job. The following example assumes that you have a GCS bucket with the requests file and a GCS bucket to store the output file.
+
+Example Job file:
+
+[embedmd]:# (tests/k8s-job-example.yaml)
+```yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: batchelor
+spec:
+  backoffLimit: 2
+  template:
+    spec:
+      containers:
+      - name: batchelor
+        image: ghcr.io/substratusai/batchelor:main
+        imagePullPolicy: Always
+        env:
+        - name: URL
+          value: http://lingo/v1/completions
+        - name: REQUESTS_PATH
+          value: gs://mybucket/requests.jsonl
+        - name: OUTPUT_PATH
+          value: gs://mybucket/responses.jsonl
+        - name: IGNORE_FIELDS
+          value: "id"
+        - name: CONCURRENCY
+          value: "1000"
+        - name: FLUSH_EVERY
+          value: "2000"
+      restartPolicy: Never
+```
+
 ## Flags
 ```sh
 usage: main.py [-h] [--url URL] [--requests-path REQUESTS_PATH] [--output-path OUTPUT_PATH]

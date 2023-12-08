@@ -1,0 +1,26 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: batchelor
+spec:
+  backoffLimit: 2
+  template:
+    spec:
+      containers:
+      - name: batchelor
+        image: ghcr.io/substratusai/batchelor:main
+        imagePullPolicy: Always
+        env:
+        - name: URL
+          value: http://lingo/v1/completions
+        - name: REQUESTS_PATH
+          value: gs://mybucket/requests.jsonl
+        - name: OUTPUT_PATH
+          value: gs://mybucket/responses.jsonl
+        - name: IGNORE_FIELDS
+          value: "id"
+        - name: CONCURRENCY
+          value: "1000"
+        - name: FLUSH_EVERY
+          value: "2000"
+      restartPolicy: Never
