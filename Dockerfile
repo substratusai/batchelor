@@ -8,8 +8,8 @@ COPY requirements.txt /usr/src/app
 # Install any needed packages specified in requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY main.py /usr/src/app
+COPY batchelor /usr/src/app/batchelor
 
 # Run the Python script when the container launches
 # Use the environment variables to pass the arguments
-CMD python main.py
+CMD python batchelor/main.py
