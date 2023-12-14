@@ -12,6 +12,8 @@ import aiohttp
 from aiohttp_retry import RetryClient, ExponentialRetry
 from smart_open import open
 
+from batchelor.reader import read_file_and_enqueue
+
 url = "http://localhost:8080/v1/completions"
 filename = "part-{partition}.jsonl"
 ignore_fields = []
@@ -20,15 +22,6 @@ requests_path = ""
 output_path = "/tmp/lingo-batch-inference"
 flush_every = 1000
 timeout = 1200
-
-
-async def read_file_and_enqueue(path, queue: asyncio.Queue):
-    with open(path, mode="r") as file:
-        print(f"Sending request to Queue from file {path}")
-        for line in file.readlines():
-            request = json.loads(line)
-            await queue.put(request)
-    await queue.put(None)
 
 
 async def worker(
