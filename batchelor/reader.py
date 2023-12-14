@@ -4,12 +4,14 @@ import json
 from google.cloud import storage
 from smart_open import open
 
+
 def parse_bucket(path: str) -> str:
     """
     Parse bucket name from a GCS path. For example given the path
     gs://bucket-name/path/to/file, return bucket-name
     """
     return path.split("/")[2]
+
 
 def convert_path_to_list(path: str) -> list[str]:
     if path.startswith("gs://"):
@@ -20,6 +22,7 @@ def convert_path_to_list(path: str) -> list[str]:
             paths.append(f"gs://{bucket_name}/{blob.name}")
         return paths
     return [path]
+
 
 async def read_file_and_enqueue(path, queue: asyncio.Queue):
     paths = convert_path_to_list(path)
