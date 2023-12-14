@@ -32,6 +32,7 @@ def test_convert_path_to_list_single(mocker):
     output = convert_path_to_list(path)
     assert len(output) == 1
     assert output[0] == path
+    assert mock_client.list_blobs.call_count == 1
 
 
 def test_convert_path_to_list_multiple(mocker):
@@ -46,3 +47,4 @@ def test_convert_path_to_list_multiple(mocker):
     assert len(output) == 2
     assert output[0] == path + "/file1.jsonl"
     assert output[1] == path + "/file2.jsonl"
+    assert mock_client.list_blobs.call_count == 1
