@@ -23,7 +23,7 @@ def test_parse_bucket(mock_client):
     assert parse_bucket(input) == expected
 
 
-def test_parse_bucket(mock_client):
+def test_parse_prefix(mock_client):
     input = "gs://bucket-name/path/to/file"
     expected = "path/to/file"
     assert parse_prefix(input) == expected
