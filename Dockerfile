@@ -9,6 +9,7 @@ COPY requirements.txt /usr/src/app
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY batchelor /usr/src/app/batchelor
+ENV PYTHONPATH "${PYTHONPATH}:/usr/src/app"
 
 # Run the Python script when the container launches
 # Use the environment variables to pass the arguments
