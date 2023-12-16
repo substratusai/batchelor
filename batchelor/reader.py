@@ -13,6 +13,14 @@ def parse_bucket(path: str) -> str:
     return path.split("/")[2]
 
 
+def parse_prefix(path: str) -> str:
+    """
+    Parse prefix from a GCS path. For example given the path
+    gs://bucket-name/path/to/file, return path/to/file
+    """
+    return path.split("/", 3)[3]
+
+
 def filter_json_files(paths: list[str]) -> list[str]:
     return [path for path in paths if path.endswith(".json") or path.endswith(".jsonl")]
 
@@ -22,7 +30,7 @@ def convert_path_to_list(path: str) -> list[str]:
         bucket_name = parse_bucket(path)
         paths = []
         client = storage.Client()
-        for blob in client.list_blobs(bucket_name, prefix=path):
+        for blob in client.list_blobs(bucket_name, prefix=parse_prefix(path)):
             paths.append(f"gs://{bucket_name}/{blob.name}")
         return filter_json_files(paths)
     return [path]

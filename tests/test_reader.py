@@ -5,7 +5,7 @@ from unittest.mock import Mock
 from google.cloud import storage
 import pytest
 
-from batchelor.reader import parse_bucket, convert_path_to_list
+from batchelor.reader import parse_bucket, convert_path_to_list, parse_prefix
 
 
 @pytest.fixture
@@ -18,9 +18,19 @@ def test_parse_bucket(mock_client):
     expected = "bucket-name"
     assert parse_bucket(input) == expected
 
-    input = "gcss://bucket-name/path/to/file"
+    input = "gcs://bucket-name/path/to/file"
     expected = "bucket-name"
     assert parse_bucket(input) == expected
+
+
+def test_parse_bucket(mock_client):
+    input = "gs://bucket-name/path/to/file"
+    expected = "path/to/file"
+    assert parse_prefix(input) == expected
+
+    input = "gcs://bucket-name/path/to/file"
+    expected = "path/to/file"
+    assert parse_prefix(input) == expected
 
 
 @dataclass
