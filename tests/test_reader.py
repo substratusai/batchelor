@@ -43,10 +43,13 @@ def test_convert_path_to_list_multiple(mocker, mock_client):
     mock_client.return_value.list_blobs.return_value = [
         Blob(name="path/file1.jsonl"),
         Blob(name="path/file2.jsonl"),
+        Blob(name="path/file3.json"),
+        Blob(name="path/file4"),
     ]
 
     output = convert_path_to_list(path)
     assert mock_client.return_value.list_blobs.call_count == 1
-    assert len(output) == 2
+    assert len(output) == 3
     assert output[0] == path + "/file1.jsonl"
     assert output[1] == path + "/file2.jsonl"
+    assert output[2] == path + "/file3.json"

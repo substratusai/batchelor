@@ -13,6 +13,10 @@ def parse_bucket(path: str) -> str:
     return path.split("/")[2]
 
 
+def filter_json_files(paths: list[str]) -> list[str]:
+    return [path for path in paths if path.endswith(".json") or path.endswith(".jsonl")]
+
+
 def convert_path_to_list(path: str) -> list[str]:
     if path.startswith("gs://"):
         bucket_name = parse_bucket(path)
@@ -20,7 +24,7 @@ def convert_path_to_list(path: str) -> list[str]:
         client = storage.Client()
         for blob in client.list_blobs(bucket_name, prefix=path):
             paths.append(f"gs://{bucket_name}/{blob.name}")
-        return paths
+        return filter_json_files(paths)
     return [path]
 
 
